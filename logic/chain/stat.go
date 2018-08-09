@@ -2,11 +2,14 @@ package chain
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/copernet/copernicus/conf"
+	mchain "github.com/copernet/copernicus/model/chain"
 	"github.com/copernet/copernicus/model/outpoint"
 	"github.com/copernet/copernicus/model/utxo"
 	"github.com/copernet/copernicus/persist/db"
@@ -29,16 +32,36 @@ func (s *stat) String() string {
 }
 
 func applyStats(stat *stat, hashbuf *bytes.Buffer, txid *util.Hash, outputs map[uint32]*utxo.Coin) error {
+	txIndexSort := []uint32{}
+	for k := range outputs {
+		txIndexSort = append(txIndexSort, k)
+	}
+	sort.Slice(txIndexSort, func(i, j int) bool {
+		return txIndexSort[i] < txIndexSort[j]
+	})
+
 	hashbuf.Write((*txid)[:])
 	cb := int32(0)
-	if outputs[0].IsCoinBase() {
+	if outputs[txIndexSort[0]].IsCoinBase() {
 		cb = 1
 	}
-	if err := util.WriteVarLenInt(hashbuf, uint64(outputs[0].GetHeight()*2+cb)); err != nil {
+	height := outputs[txIndexSort[0]].GetHeight()
+	/*
+		fmt.Printf("txid==%s, height=%d, coinbase=%d\n", txid.String(), height, cb)
+		func() {
+			fmt.Println("before ***********")
+			for k, v := range outputs {
+				fmt.Printf("k=%v, v=%+v\n", k, v)
+			}
+			fmt.Println("after ************")
+		}()
+	*/
+	if err := util.WriteVarLenInt(hashbuf, uint64(height*2+cb)); err != nil {
 		return err
 	}
 	stat.nTx++
-	for k, v := range outputs {
+	for _, k := range txIndexSort {
+		v := outputs[k]
 		if err := util.WriteVarLenInt(hashbuf, uint64(k+1)); err != nil {
 			return err
 		}
@@ -61,6 +84,7 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 		return err
 	}
 	stat.bestblock = *besthash
+	stat.height = int(mchain.GetInstance().FindBlockIndex(*besthash).Height)
 
 	hashbuf := bytes.NewBuffer(nil)
 	hashbuf.Write(stat.bestblock[:])
@@ -77,8 +101,10 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 	if err != nil {
 		return err
 	}
+	fmt.Fprintf(logf, "besthash=%s\n", stat.bestblock.ToString())
 	for ; iter.Valid(); iter.Next() {
-		fmt.Fprintln(logf, "entering iter loop")
+		//fmt.Fprintln(logf, "entering iter loop")
+		bw.Reset()
 		bw.Write(iter.GetKey())
 		entry := utxo.NewCoinKey(&outpoint)
 		if err := entry.Unserialize(bw); err != nil {
@@ -90,7 +116,8 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 		if err := coin.Unserialize(bw); err != nil {
 			return err
 		}
-		fmt.Fprintf(logf, "coin =%+v\n", coin)
+		fmt.Fprintf(logf, "outpoint=(%s,%d)\n", outpoint.Hash.String(), outpoint.Index)
+		fmt.Fprintf(logf, "coin=%+v,script=%s\n", coin, hex.EncodeToString(coin.GetScriptPubKey().GetData()))
 		if len(outputs) > 0 && outpoint.Hash != prevkey {
 			applyStats(stat, hashbuf, &prevkey, outputs)
 			for k := range outputs {
@@ -101,9 +128,10 @@ func GetUTXOStats(cdb utxo.CoinsDB, stat *stat) error {
 		prevkey = outpoint.Hash
 	}
 	if len(outputs) > 0 {
-		fmt.Fprintln(logf, "entering len(outputs) > 0")
+		//fmt.Fprintln(logf, "entering len(outputs) > 0")
 		applyStats(stat, hashbuf, &prevkey, outputs)
 	}
+	fmt.Fprintf(logf, "bytes to hash=%s\n", hex.EncodeToString(hashbuf.Bytes()))
 	stat.hashSerialized = util.DoubleSha256Hash(hashbuf.Bytes())
 	return nil
 }

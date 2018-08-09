@@ -264,7 +264,9 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		log.Print("test", "debug", "f.WriteString() failed with : %s", err)
 		return err
 	}
-
+	if pIndexNew.Height == 1 {
+		panic("recv height 1 block")
+	}
 	nTime5 := util.GetMicrosTime()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
