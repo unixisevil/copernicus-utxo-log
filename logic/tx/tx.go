@@ -484,6 +484,7 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 	if err != nil {
 		return err
 	}
+	txHash := tx.GetHash()
 	ins := tx.GetIns()
 	for i, in := range ins {
 		coin := tempCoinMap.GetCoin(in.PreviousOutPoint)
@@ -492,6 +493,12 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 		}
 		scriptPubKey := coin.GetScriptPubKey()
 		scriptSig := in.GetScriptSig()
+		if txHash.String() == "f261dfa4519e8dd75112ad987d9c822a92cd236d57d7a48603f96bfff2683524" {
+			log.Debug("coin=%+v, i=%d\n", coin, i)
+			log.Debug("scriptPubKey=%s\n", hex.EncodeToString(scriptPubKey.GetData()))
+			log.Debug("prevoutpoint=%s\n", in.PreviousOutPoint.String())
+			log.Debug("scriptSig=%s\n", hex.EncodeToString(scriptSig.GetData()))
+		}
 		err := verifyScript(tx, scriptSig, scriptPubKey, i, coin.GetAmount(), flags)
 		if err != nil {
 			if ((flags & uint32(script.StandardNotMandatoryVerifyFlags)) ==
@@ -508,6 +515,13 @@ func checkInputs(tx *tx.Tx, tempCoinMap *utxo.CoinsMap, flags uint32) error {
 				in.PreviousOutPoint.Hash.String(), in.PreviousOutPoint.Index)
 			return errcode.New(errcode.TxErrRejectInvalid)
 		}
+		if txHash.String() == "f261dfa4519e8dd75112ad987d9c822a92cd236d57d7a48603f96bfff2683524" {
+			log.Debug("after verifyScript(), i=%d, got err=%v\n", i, err)
+		}
+	}
+
+	if txHash.String() == "f261dfa4519e8dd75112ad987d9c822a92cd236d57d7a48603f96bfff2683524" {
+		log.Debug("checkInputs(), after f261dfa4519e8dd75112ad987d9c822a92cd236d57d7a48603f96bfff2683524\n")
 	}
 	return nil
 }

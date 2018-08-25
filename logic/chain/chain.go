@@ -254,7 +254,7 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		log.Print("test", "debug", "GetUTXOStats() failed with : %s", err)
 		return err
 	}
-	f, err := os.OpenFile(filepath.Join(conf.GetDataPath(), "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
+	f, err := os.OpenFile(filepath.Join(conf.DataDir, "utxo.log"), os.O_APPEND|os.O_RDWR|os.O_CREATE, 0640)
 	if err != nil {
 		log.Print("test", "debug", "os.OpenFile() failed with : %s", err)
 		return err
@@ -264,9 +264,11 @@ func ConnectTip(pIndexNew *blockindex.BlockIndex,
 		log.Print("test", "debug", "f.WriteString() failed with : %s", err)
 		return err
 	}
-	if pIndexNew.Height == 1 {
-		panic("recv height 1 block")
-	}
+	/*
+		if pIndexNew.Height == 383 {
+			panic("faile 383")
+		}
+	*/
 	nTime5 := util.GetMicrosTime()
 	gPersist.GlobalTimeChainState += nTime5 - nTime4
 	log.Print("bench", "debug", " - Writing chainstate: %.2fms [%.2fs]\n",
